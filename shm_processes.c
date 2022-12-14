@@ -85,31 +85,47 @@ int main(int argc, char *argv[]) {
     srandom(getpid());
     while (true) {
       // ParentProcess
-      sleep(random() % 6);
-      sem_wait(mutex);
-      printf("Dear Old Dad: Attempting to Check Balance\n");
-      localBalance = ShmPTR[BankAccount];
-      random_decision = random(); // decide to deposit or not
-      if (random_decision % 2 == 0) {
-        if (localBalance < 100) {
-          random_deposit = random() % 101; // for 0-100 inclusive
-          if (random_deposit % 2 == 0) {
-            localBalance += random_deposit;
-            printf("Dear old Dad: Deposits $%d / Balance = $%d\n",
-                   random_deposit, localBalance);
-          } else {
-            printf("Dear old Dad: Doesn't have any money to give\n");
-          }
-        } else {
-          printf("Dear old Dad: Thinks student has enough Cash ($%d)\n",
-                 localBalance);
-        }
-      } else {
-        printf("Dear old Dad: Last Checking Balance = $%d\n", localBalance);
-      }
-      ShmPTR[BankAccount] = localBalance;
-      sem_post(mutex);
-    }
+     / The "sleep" function causes the program to pause for a random amount of time (up to 5 seconds).
+// The "sem_wait" function is used to acquire a semaphore (a synchronization object) before accessing the shared memory.
+// "mutex" is the name of the semaphore.
+// "ShmPTR" is a pointer to shared memory, where the bank account balance is stored.
+// "BankAccount" is the index of the bank account in the shared memory.
+// "localBalance" is a local variable that holds a copy of the bank account balance.
+// "random_decision" is a random number that is used to decide whether to make a deposit or not.
+// "random_deposit" is a random number that determines the amount of the deposit (if any).
+sleep(random() % 6); // pause for a random amount of time (up to 5 seconds)
+sem_wait(mutex); // acquire the semaphore before accessing the shared memory
+printf("Dear Old Dad: Attempting to Check Balance\n");
+localBalance = ShmPTR[BankAccount]; // copy the bank account balance from shared memory
+random_decision = random(); // decide whether to make a deposit or not
+if (random_decision % 2 == 0) { // if random_decision is even, make a deposit
+if (localBalance < 100) { // if the balance is less than 100, make a deposit
+random_deposit = random() % 101; // generate a random deposit amount (0-100 inclusive)
+if (random_deposit % 2 == 0) { // if the deposit amount is even, make the deposit
+localBalance += random_deposit; // update the local balance
+printf("Dear old Dad: Deposits $%d / Balance = $%d\n", random_deposit, localBalance);
+}
+}
+}
+
+
+
+
+           else { // if random_decision is odd, do not make a deposit
+printf("Dear old Dad: Doesn't have any money to give\n");
+}
+} else { // if the balance is greater than or equal to 100, do not make a deposit
+printf("Dear old Dad: Thinks student has enough Cash ($%d)\n", localBalance);
+}
+} else { // if random_decision is odd, do not make a deposit
+printf("Dear old Dad: Last Checking Balance = $%d\n", localBalance);
+}
+ShmPTR[BankAccount] = localBalance; // update the bank account balance in shared memory
+sem_post(mutex); // release the semaphore after accessing the shared memory
+
+
+
+
     wait(&status);
     printf("Process has detected the completion of its child...\n");
     shmdt((void *)ShmPTR);
@@ -126,20 +142,52 @@ void ChildProcess(int SharedMem[], int nth) {
   int random_withdrawal;
   int random_decision;
   srandom(getpid());
-  while (true) {
+  // keep looping until the program is terminated
+while (true) {
+    // sleep for a random amount of time
     sleep(random() % 6);
+
+    // wait for the mutex lock before accessing shared memory
     sem_wait(mutex);
+
+    // print a message indicating that the student is attempting to check their balance
     printf("Poor Student #%d: Attempting to Check Balance\n", nth);
+
+    // retrieve the student's balance from shared memory
     localBalance = SharedMem[BankAccount];
-    random_decision = random(); // decide to withdraw or not
+
+    // decide whether to withdraw money or not
+    random_decision = random();
     if (random_decision % 2 == 0) {
-      random_withdrawal = random() % 51; // for 0-50 inclusive
+      // randomly select an amount of money to withdraw (between 0 and 50)
+      random_withdrawal = random() % 51;
       printf("Poor Student needs $%d\n", random_withdrawal);
+
+      // check if the student has enough money to make the withdrawal
       if (random_withdrawal <= localBalance) {
+        // make the withdrawal and update the student's balance
         localBalance -= random_withdrawal;
         printf("Poor Student #%d: Withdraws $%d / Balance = $%d\n", nth,
                random_withdrawal, localBalance);
-      } else {
+      }
+      // if the student doesn't have enough money, print a message
+      else {
+        printf("Poor Student #%d: Not enough money to withdraw $%d.\n", nth,
+               random_withdrawal);
+      }
+    }
+    // if the student decides not to withdraw money, print a message
+    else {
+      printf("Poor Student #%d: Decides not to withdraw money.\n", nth);
+    }
+
+    // update the student's balance in shared memory
+    SharedMem[BankAccount] = localBalance;
+
+    // release the mutex lock
+    sem_post(mutex);
+}
+ else {
         printf("Poor Student #%d: Not Enough Cash ($%d)\n", nth, localBalance);
       }
     } else {
@@ -151,22 +199,46 @@ void ChildProcess(int SharedMem[], int nth) {
   }
 }
 
+// define a function to simulate the behavior of a mother process
 void MumProcess(int SharedMem[]) {
+  // initialize a variable to store the mother's balance
   int localBalance;
+
+  // initialize a variable to store the amount of money the mother will deposit
   int random_deposit;
+
+  // seed the random number generator with the process id
   srandom(getpid());
+
+  // keep looping until the program is terminated
   while (true) {
+    // sleep for a random amount of time
     sleep(random() % 11);
+
+    // wait for the mutex lock before accessing shared memory
     sem_wait(mutex);
+
+    // print a message indicating that the mother is attempting to check her balance
     printf("Lovable Mom: Attempting to Check Balance\n");
+
+    // retrieve the mother's balance from shared memory
     localBalance = SharedMem[BankAccount];
+
+    // check if the mother's balance is low
     if (localBalance <= 100) {
-      random_deposit = random() % 126; // for 0-125 inclusive
+      // deposit a random amount of money (between 0 and 125)
+      random_deposit = random() % 126;
       localBalance += random_deposit;
       printf("Lovable Mom: Deposits $%d / Balance = $%d\n", random_deposit,
              localBalance);
     }
+
+    // update the mother's balance in shared memory
     SharedMem[BankAccount] = localBalance;
+
+    // release the mutex lock
     sem_post(mutex);
   }
+}
+
 }
